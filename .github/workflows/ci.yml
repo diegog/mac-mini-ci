@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: SVG assets are well-formed
+        run: |
+          for f in .github/*.svg; do
+            python3 -c 'import sys, xml.dom.minidom; xml.dom.minidom.parse(sys.argv[1])' "$f"
+            echo "ok: $f"
+          done
+
+      - name: README references files that exist
+        run: |
+          grep -oE '(src|srcset)="[^"]+"' README.md | cut -d'"' -f2 | while read -r p; do
+            test -f "$p" || { echo "missing: $p"; exit 1; }
+            echo "ok: $p"
+          done
