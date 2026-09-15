@@ -24,6 +24,7 @@ jobs:
   release:
     name: mac-release (fresh VM with the signing share)
     runs-on: [self-hosted, macOS, ARM64, mac-release]
+    environment: release   # waits for a reviewer, like a real release
     steps:
       - name: Environment
         run: |
