@@ -1,6 +1,11 @@
+encryptionsalt: v1:DMllCmsgIms=:v1:WSJtiTmnHThjS9HE:eIqXZ0lxSmrdD5pNaRefJDLTkO3Dzw==
 config:
   mac-mini-ci-github:owner: diegog
   mac-mini-ci-github:repository: mac-mini-ci
   mac-mini-ci-github:reviewerIds:
     - 44004958
-encryptionsalt: v1:DMllCmsgIms=:v1:WSJtiTmnHThjS9HE:eIqXZ0lxSmrdD5pNaRefJDLTkO3Dzw==
+  mac-mini-ci-github:releaseVariables:
+    APPLE_TEAM_ID: 7569ZK8PXF
+    SIGNING_IDENTITY: "Developer ID Application: Diego Garcia (7569ZK8PXF)"
+    NOTARY_KEY_ID: QUTQ5MMDTW
+    NOTARY_ISSUER_ID: 98270174-2ba1-4921-91e3-545ddc83ac04
