@@ -56,24 +56,24 @@ github_app_id = os.environ.get("MAC_MINI_GITHUB_APP_ID")
 github_app_installation_id = os.environ.get("MAC_MINI_GITHUB_APP_INSTALLATION_ID")
 github_app_key = os.environ.get("MAC_MINI_GITHUB_APP_KEY")                 # local path to the .pem
 
-# Build lane: one-job JIT runners in fresh Tart VMs, two slots (Apple's per-host VM limit).
-build_slots = 2
-build_runner_labels = ["self-hosted", "macOS", "ARM64", "mac-build"]
-build_vm_cpu = 4
-build_vm_memory_mb = 8192
+# Workers: each keeps one Tart VM slot busy (Apple allows two macOS VMs per host) and serves
+# both lanes with one-job JIT runners.
+workers = 2
+vm_cpu = 4
+vm_memory_mb = 8192
+build_labels = ["self-hosted", "macOS", "ARM64", "mac-build"]
+release_labels = ["self-hosted", "macOS", "ARM64", "mac-release"]
 # Extra `tart run` flags, e.g. "--net-softnet-block=0.0.0.0/0 --net-softnet-allow=..." for an
 # egress allow-list once there is a hostname-aware proxy to point at (GitHub publishes no IP
 # ranges for the Actions service endpoints). Softnet already isolates VMs from the LAN.
-build_extra_tart_run_args = ""
+extra_tart_run_args = ""
 
-# The actions/runner build used by both lanes (host runner, and injected into every build VM,
-# because the image's bundled copy ages out). Bump both together; GitHub refuses runners more
-# than 30 days behind current:
+# Release signing material, mounted read-only into release VMs only. Local paths; optional.
+signing_p12 = os.environ.get("MAC_MINI_SIGNING_P12")   # Developer ID Application .p12
+notary_key = os.environ.get("MAC_MINI_NOTARY_KEY")     # App Store Connect team API key .p8
+
+# The actions/runner build injected into every VM (the image's bundled copy ages out). Bump
+# both together; GitHub refuses runners more than 30 days behind current:
 #   gh api repos/actions/runner/releases/tags/v2.337.0 --jq '.assets[] | select(.name | test("osx-arm64")) | .digest'
 runner_version = "2.337.0"
 runner_sha256 = "5a2cd92908a93d7276a194e1de6008099f3e7946f3f8e14aa7a1a7b4a31fdec2"
-
-# Release lane: one persistent runner on the host.
-release_runner_name = "mac-release"
-release_runner_labels = ["mac-release"]
-

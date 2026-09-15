@@ -1,7 +1,7 @@
 #!/bin/bash
 # Print a one-hour GitHub App installation token. The only place the App key is read on the host.
 set -euo pipefail
-. /Users/ci/mac-mini-ci/mac-build.env
+. /Users/ci/mac-mini-ci/runners.env
 KEY=/Users/ci/.config/mac-mini-ci/github-app.pem
 
 b64url() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }

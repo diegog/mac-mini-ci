@@ -18,7 +18,8 @@
 
 Everything needed to turn a headless Mac mini into a self-hosted GitHub Actions runner.
 Every job runs in a fresh macOS VM that is thrown away afterwards. Releases are signed and
-notarized on the host, and a person approves each one.
+notarized in a VM of their own: the key file stays on the host and is only mounted into release
+VMs, and a person approves each one.
 
 ## How it's built
 
