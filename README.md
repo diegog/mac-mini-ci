@@ -27,7 +27,7 @@ VMs, and a person approves each one.
 | --- | --- |
 | First boot | A person at the machine |
 | Machine setup | [pyinfra](https://pyinfra.com), in [`machine/`](machine/) |
-| GitHub config | [Pulumi](https://www.pulumi.com) |
+| GitHub config | [Pulumi](https://www.pulumi.com), in [`github/`](github/) |
 | VM images | [Packer](https://www.packer.io) + [Tart](https://tart.run) |
 
 ## Before the tools can run

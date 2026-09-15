@@ -1,0 +1,6 @@
+config:
+  mac-mini-ci-github:owner: diegog
+  mac-mini-ci-github:repository: mac-mini-ci
+  mac-mini-ci-github:reviewerIds:
+    - 44004958
+encryptionsalt: v1:DMllCmsgIms=:v1:WSJtiTmnHThjS9HE:eIqXZ0lxSmrdD5pNaRefJDLTkO3Dzw==

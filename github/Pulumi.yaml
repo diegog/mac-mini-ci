@@ -1,0 +1,6 @@
+name: mac-mini-ci-github
+description: GitHub settings for the mac-mini-ci repository, applied as the mac-mini-ci runner GitHub App
+runtime:
+  name: python
+  options:
+    virtualenv: .venv
