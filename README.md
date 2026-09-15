@@ -63,8 +63,22 @@ and Ethernet.
    the App Store needs an Apple Account signed in on the Mac.
 2. Create the Developer ID Application certificate (Account Holder) and export the `.p12`.
 3. Create an App Store Connect **Team** API key (Admin). Individual keys cannot use `notarytool`.
-4. Register a GitHub App from a manifest and install it on the organization or repository.
+4. Create a GitHub App (Settings › Developer settings › GitHub Apps): webhook off, repository
+   permission **Administration: read and write**, installable only on this account. Generate a
+   private key. Install it on **this repository only**. Note the App ID and, from the installation
+   page URL, the installation ID. Both the Mac and Pulumi authenticate as this App; nothing uses a
+   personal token. GitHub has no API for any of this.
+
+### Once, on the workstation
+
+1. Put the App's private key at `~/.config/mac-mini-ci/github-app.pem`, mode 600.
+2. `machine/.env`: the two Mac passwords and the App's repo, ID, installation ID and key path
+   (see [`machine/README.md`](machine/README.md)).
+3. `github/.env`: a passphrase for Pulumi's state, backed up somewhere safe
+   (see [`github/README.md`](github/README.md)).
 
 Only the first group needs hands on the machine. Do it all in one sitting.
 
-> **Status:** this is a plan, not a working system yet.
+> **Status:** the machine is built and both runner lanes are live; the GitHub side is managed by
+> Pulumi. Not yet: signing and notarization (waiting on a Developer ID certificate and an App Store
+> Connect key), and VM images of our own (Packer) — builds use Cirrus Labs' Tahoe image for now.
