@@ -1,0 +1,9 @@
+[project]
+name = "mac-mini-ci-machine"
+version = "0.0.0"
+description = "pyinfra deploy that turns a headless Mac mini into a GitHub Actions runner host"
+requires-python = ">=3.10,<4.0"
+dependencies = ["pyinfra~=3.10"]
+
+[tool.ruff]
+line-length = 100

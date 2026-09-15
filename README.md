@@ -25,7 +25,7 @@ notarized on the host, and a person approves each one.
 | Layer | Tool |
 | --- | --- |
 | First boot | A person at the machine |
-| Machine setup | [pyinfra](https://pyinfra.com) |
+| Machine setup | [pyinfra](https://pyinfra.com), in [`machine/`](machine/) |
 | GitHub config | [Pulumi](https://www.pulumi.com) |
 | VM images | [Packer](https://www.packer.io) + [Tart](https://tart.run) |
 
@@ -41,8 +41,9 @@ and Ethernet.
    in turns FileVault on and attaches Activation Lock. **Decline FileVault**; it blocks automatic
    login, and nothing starts after a reboot. Decline everything else.
 2. **System Settings > General > Sharing.** Turn on **Remote Login** and **Screen Sharing**.
-3. **System Settings > Privacy & Security.** Turn off Background Security Improvements if
-   surprise restarts are unwelcome. No command line for this is known.
+3. **System Settings > General > Software Update > Automatic Updates.** Turn everything off
+   except security responses. On macOS 27 this has no command line; nor does Privacy & Security >
+   Background Security Improvements, which you may also want off if surprise restarts are unwelcome.
 4. Check that `ssh` works from another machine. Unplug the display. pyinfra takes over from here.
 
 ### Later, over Screen Sharing, if needed
