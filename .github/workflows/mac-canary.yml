@@ -1,0 +1,34 @@
+name: Mac canary
+
+# Proves both self-hosted lanes take work. Manual only; never triggered by pull requests.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: mac-build (fresh VM)
+    runs-on: [self-hosted, macOS, ARM64, mac-build]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Environment
+        run: |
+          sw_vers
+          uname -m
+          whoami
+          xcodebuild -version
+          echo "runner: $RUNNER_NAME"
+
+  release:
+    name: mac-release (host)
+    runs-on: [self-hosted, macOS, ARM64, mac-release]
+    steps:
+      - name: Environment
+        run: |
+          sw_vers
+          uname -m
+          whoami
+          echo "runner: $RUNNER_NAME"
+          launchctl print system/actions.runner.diegog-mac-mini-ci.mac-release 2>/dev/null | grep -E 'state|pid' || true

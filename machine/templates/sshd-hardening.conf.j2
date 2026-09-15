@@ -1,0 +1,7 @@
+# Managed by pyinfra (machine/templates/sshd-hardening.conf.j2). sshd keeps the first value it sees,
+# and Apple's own drop-in is 100-macos.conf, so this file sorts first and wins.
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin no
+PubkeyAuthentication yes
+AllowUsers {{ host.data.admin_user }}
