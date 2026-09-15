@@ -91,6 +91,18 @@ github.RepositoryEnvironmentDeploymentPolicy(
     opts=opts,
 )
 
+# Non-secret identifiers the release workflow needs (`vars.*`). The two secrets are set by hand:
+# SIGNING_P12_PASSWORD (environment) — and the key files themselves live on the Mac.
+for variable_name, value in config.require_object("releaseVariables").items():
+    github.ActionsEnvironmentVariable(
+        f"release-var-{variable_name.lower().replace('_', '-')}",
+        repository=repo.name,
+        environment=release.environment,
+        variable_name=variable_name,
+        value=value,
+        opts=opts,
+    )
+
 # main: changes arrive by pull request with CI green; no force-pushes or deletion. Repository
 # admins may bypass for emergencies.
 github.RepositoryRuleset(

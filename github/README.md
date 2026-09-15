@@ -27,7 +27,7 @@ pulumi up
 | `github.Repository` (imported, protected) | description, public, issues on, wiki/projects off, delete branch on merge, all merge methods |
 | `github.ActionsRepositoryPermissions` | only GitHub-authored and verified-creator actions; **SHA pinning required** (pin with `uses: owner/action@<commit>  # vN`) |
 | `ForkPrApprovalPolicy` (dynamic, `fork_pr_policy.py`) | fork pull request workflows need approval from a maintainer for **all** external contributors |
-| `github.RepositoryEnvironment` `release` | required reviewer(s) from `reviewerIds`; deployments only from `main` |
+| `github.RepositoryEnvironment` `release` | required reviewer(s) from `reviewerIds`; deployments only from `main`; variables `APPLE_TEAM_ID`, `SIGNING_IDENTITY`, `NOTARY_KEY_ID`, `NOTARY_ISSUER_ID` from `releaseVariables` |
 | `github.RepositoryRuleset` `main` | changes by pull request with the `Check repository` check green; no force-push or deletion; repository admins may bypass |
 
 Not managed here: the GitHub App and its installation; the `release` environment's secrets

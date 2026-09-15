@@ -61,10 +61,18 @@ and Ethernet.
 1. Download the Xcode `.xip` from developer.apple.com (Apple Account with 2FA) and stage it for
    Packer. Repeat for each Xcode version. Software Update only offers the Command Line Tools, and
    the App Store needs an Apple Account signed in on the Mac.
-2. Create the Developer ID Application certificate (Account Holder) and export the `.p12`.
-3. Create an App Store Connect **Team** API key (Admin). Individual keys cannot use `notarytool`.
+2. Join the Apple Developer Program (paid; the enrollment takes up to two days to process). Then
+   create a **Developer ID Application** certificate from a CSR generated on the workstation
+   (`openssl req`), download the `.cer`, and export a password-protected `.p12` that includes
+   Apple's Developer ID G2 intermediate. The password goes in the `release` environment secret
+   `SIGNING_P12_PASSWORD`; the `.p12` path goes in `machine/.env`.
+3. On appstoreconnect.apple.com › Users and Access › Integrations, create a **Team** API key with
+   the Developer role (Individual keys cannot use `notarytool`); download the `.p8` (offered once)
+   and note its Key ID and the Issuer ID. The `.p8` path goes in `machine/.env`; the IDs are
+   Pulumi config.
 4. Create a GitHub App (Settings › Developer settings › GitHub Apps): webhook off, repository
-   permission **Administration: read and write**, installable only on this account. Generate a
+   permissions **Administration** and **Environments** (both read and write), installable only on
+   this account. Generate a
    private key. Install it on **this repository only**. Note the App ID and, from the installation
    page URL, the installation ID. Both the Mac and Pulumi authenticate as this App; nothing uses a
    personal token. GitHub has no API for any of this.
@@ -79,6 +87,6 @@ and Ethernet.
 
 Only the first group needs hands on the machine. Do it all in one sitting.
 
-> **Status:** the machine is built and both runner lanes are live; the GitHub side is managed by
-> Pulumi. Not yet: signing and notarization (waiting on a Developer ID certificate and an App Store
-> Connect key), and VM images of our own (Packer) — builds use Cirrus Labs' Tahoe image for now.
+> **Status:** the machine is built, both runner lanes are live, releases are signed and notarized,
+> and the GitHub side is managed by Pulumi. Not yet: VM images of our own (Packer) — builds use
+> Cirrus Labs' Tahoe image for now.
