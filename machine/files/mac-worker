@@ -1,0 +1,163 @@
+#!/bin/bash
+# mac-worker: one Tart VM slot that serves both lanes with one-job (JIT) GitHub Actions runners.
+#
+#   keep a warm build VM booted (nothing registered)
+#   -> poll GitHub for queued jobs with a label we serve -> claim one (lock dir, per job id)
+#   -> build:   mint JIT config, install the pinned runner into the warm VM, run.sh --jitconfig
+#      release: discard the warm VM, boot one with the signing share mounted, same steps
+#   -> a watchdog tears the runner down if its job never arrives
+#   -> delete the VM, boot the next warm one
+#
+# Runs forever as `ci` under launchd (one daemon per worker). Every failure backs off and retries;
+# a VM is always deleted before the next cycle.
+set -uo pipefail
+WORKER=${1:?usage: mac-worker <n>}
+. /Users/ci/mac-mini-ci/runners.env
+BIN=/Users/ci/mac-mini-ci/bin
+CLAIMS=/Users/ci/mac-mini-ci/run/claims
+export PATH=/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
+export TART_NO_AUTO_PRUNE=   # never evict the base image from the cache mid-cycle
+VM=; TART_PID=; CLAIM=; TOKEN=; TOKEN_AT=0
+
+log() { printf '%s worker%s %s\n' "$(date '+%F %T')" "$WORKER" "$*"; }
+
+teardown_vm() {
+  if [ -n "$VM" ]; then
+    tart stop "$VM" >/dev/null 2>&1
+    [ -n "$TART_PID" ] && wait "$TART_PID" 2>/dev/null
+    tart delete "$VM" >/dev/null 2>&1
+    VM=; TART_PID=
+  fi
+}
+release_claim() { [ -n "$CLAIM" ] && rmdir "$CLAIMS/$CLAIM" 2>/dev/null; CLAIM=; }
+backoff() { log "$1; retrying in ${BACKOFF_SECONDS}s"; release_claim; teardown_vm; sleep "$BACKOFF_SECONDS"; }
+trap 'log "stopping"; release_claim; teardown_vm; exit 0' INT TERM
+
+# Installation tokens last an hour; refresh well before that.
+token() {
+  if [ $(( $(date +%s) - TOKEN_AT )) -gt 2400 ]; then
+    TOKEN=$("$BIN/github-app-token") || return 1
+    TOKEN_AT=$(date +%s)
+  fi
+}
+gh() {  # gh <path-under-repo> [curl args...]
+  curl -fsS -H "Authorization: Bearer $TOKEN" -H 'Accept: application/vnd.github+json' \
+    -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/$GITHUB_REPO/$1" "${@:2}"
+}
+
+boot_vm() {  # boot_vm build|release
+  VM="job-$WORKER-$(date +%s)"
+  tart clone "$TART_IMAGE" "$VM" || return 1
+  tart set "$VM" --cpu "$VM_CPU" --memory "$VM_MEMORY_MB" || return 1
+  local mounts="--dir=runner:$RUNNER_CACHE:ro"
+  [ "$1" = release ] && mounts="$mounts --dir=signing:$SIGNING_DIR:ro"
+  # shellcheck disable=SC2086  # mounts and EXTRA_TART_RUN_ARGS are intentionally word-split
+  tart run --no-graphics --no-audio --net-softnet $mounts $EXTRA_TART_RUN_ARGS "$VM" >/dev/null 2>&1 &
+  TART_PID=$!
+  tart ip "$VM" --wait 180 >/dev/null 2>&1 || return 1
+  local i
+  for i in $(seq 1 30); do tart exec "$VM" true >/dev/null 2>&1 && return 0; sleep 2; done
+  return 1
+}
+
+# Oldest queued job whose labels include a lane we serve and that no worker has claimed.
+# Prints "<job id> <lane>".
+find_job() {
+  gh "actions/runs?status=queued&per_page=20" | jq -r '.workflow_runs[].id' | while read -r run; do
+    gh "actions/runs/$run/jobs?per_page=100" \
+      | jq -r '.jobs[] | select(.status == "queued") | "\(.id) \(.labels | join(","))"'
+  done | while read -r id labels; do
+    case ",$labels," in
+      *,mac-release,*) lane=release ;;
+      *,mac-build,*)   lane=build ;;
+      *) continue ;;
+    esac
+    [ -d "$CLAIMS/$id" ] && continue
+    echo "$id $lane"
+    break
+  done
+}
+
+# VMs of this worker that are not the current one (a previous life, or a failed teardown).
+sweep_orphans() {
+  local vm
+  for vm in $(tart list -q 2>/dev/null | grep "^job-$WORKER-"); do
+    [ "$vm" = "$VM" ] && continue
+    log "deleting orphan $vm"
+    tart stop "$vm" >/dev/null 2>&1
+    tart delete "$vm" >/dev/null 2>&1 || log "could not delete $vm yet"
+  done
+}
+
+mkdir -p "$CLAIMS"
+find "$CLAIMS" -mindepth 1 -maxdepth 1 -type d -mmin +720 -exec rmdir {} \; 2>/dev/null   # stale
+
+while :; do
+  # 1. Always have a warm build VM ready.
+  if [ -z "$VM" ]; then
+    sweep_orphans
+    boot_vm build || { backoff "could not boot a warm VM"; continue; }
+    log "$VM warm"
+  fi
+
+  # 2. Anything queued for us?
+  token || { backoff "could not mint an installation token"; continue; }
+  job=$(find_job)
+  if [ -z "$job" ]; then sleep "$POLL_SECONDS"; continue; fi
+  id=${job% *}; lane=${job#* }
+  mkdir "$CLAIMS/$id" 2>/dev/null || continue   # the other worker got it first
+  CLAIM=$id
+  log "claimed job $id ($lane)"
+
+  # 3. Release jobs get a VM with the signing share; the warm one is discarded.
+  if [ "$lane" = release ]; then
+    teardown_vm
+    boot_vm release || { backoff "could not boot a release VM"; continue; }
+  fi
+  if [ "$lane" = release ]; then labels=$RELEASE_LABELS; else labels=$BUILD_LABELS; fi
+
+  # 4. A one-job runner registration for this VM.
+  name="mac-$lane-$(hostname -s)-$WORKER-$(date +%s)"
+  body=$(jq -cn --arg n "$name" --arg l "$labels" \
+    '{name: $n, runner_group_id: 1, labels: ($l | split(",")), work_folder: "_work"}')
+  reg=$(gh actions/runners/generate-jitconfig -X POST -d "$body") || { backoff "could not mint a JIT config"; continue; }
+  jit=$(printf '%s' "$reg" | jq -er .encoded_jit_config) || { backoff "bad JIT response"; continue; }
+  runner_id=$(printf '%s' "$reg" | jq -er .runner.id)
+
+  # 5. Install the pinned runner (the image's copy ages out) and run exactly one job.
+  tarball="actions-runner-osx-arm64-$RUNNER_VERSION.tar.gz"
+  guest_script="set -e
+rm -rf ~/actions-runner && mkdir -p ~/actions-runner && cd ~/actions-runner
+if [ -f '/Volumes/My Shared Files/runner/$tarball' ]; then
+  tar -xzf '/Volumes/My Shared Files/runner/$tarball'
+else
+  curl -fsSL -o /tmp/$tarball 'https://github.com/actions/runner/releases/download/v$RUNNER_VERSION/$tarball'
+  echo '$RUNNER_SHA256  /tmp/$tarball' | shasum -a 256 -c - >/dev/null
+  tar -xzf /tmp/$tarball
+fi
+./run.sh --jitconfig '$jit'"
+  log "$VM: runner $name ($lane) starting"
+  tart exec "$VM" /bin/zsh -lc "$guest_script" &
+  exec_pid=$!
+  unset jit guest_script
+
+  # 6. Watchdog: if the runner never gets busy (job cancelled, or assigned elsewhere), stop waiting.
+  idle=0
+  while kill -0 "$exec_pid" 2>/dev/null; do
+    sleep "$WATCHDOG_SECONDS"
+    token || continue
+    busy=$(gh "actions/runners/$runner_id" 2>/dev/null | jq -r .busy 2>/dev/null)
+    case "$busy" in
+      true) idle=0 ;;
+      false) idle=$((idle + WATCHDOG_SECONDS)) ;;
+      *) log "runner $runner_id gone from GitHub"; break ;;
+    esac
+    if [ "$idle" -ge "$IDLE_TIMEOUT_SECONDS" ]; then log "no job arrived for $name"; break; fi
+  done
+  kill "$exec_pid" 2>/dev/null; wait "$exec_pid" 2>/dev/null
+  log "$VM: runner $name finished"
+
+  # 7. Throw it away; the loop boots the next warm VM.
+  release_claim
+  teardown_vm
+done

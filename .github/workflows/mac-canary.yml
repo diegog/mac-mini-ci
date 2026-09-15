@@ -22,7 +22,7 @@ jobs:
           echo "runner: $RUNNER_NAME"
 
   release:
-    name: mac-release (host)
+    name: mac-release (fresh VM with the signing share)
     runs-on: [self-hosted, macOS, ARM64, mac-release]
     steps:
       - name: Environment
@@ -31,4 +31,4 @@ jobs:
           uname -m
           whoami
           echo "runner: $RUNNER_NAME"
-          launchctl print system/actions.runner.diegog-mac-mini-ci.mac-release 2>/dev/null | grep -E 'state|pid' || true
+          echo "signing share:"; ls -la "/Volumes/My Shared Files/signing" || echo "(not mounted)"

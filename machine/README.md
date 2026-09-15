@@ -55,29 +55,34 @@ for the host in `~/.ssh/config` keeps the long image pull alive; pyinfra honours
 | clt | Xcode Command Line Tools (git, python3) |
 | homebrew | Homebrew.pkg (sha256-pinned), owned by `infra`, analytics off |
 | tart | `tart`, `softnet` (setuid), `jq`; base image pulled into `/Users/ci/.tart` |
-| github_app | App key (0600, `ci` only), `mac-build.env`, the `github-app-token` and `mac-build-slot` scripts; proves token minting from the host |
-| build_lane | Two LaunchDaemons (`ci.mac-mini-ci.mac-build.slot1/2`), each: mint JIT config → clone image → boot VM under softnet → `run.sh --jitconfig` (one job) → delete |
-| release_lane | Persistent `mac-release` runner in `/Users/ci/actions-runner`, registered once with a token minted here, `--disableupdate`, LaunchDaemon from GitHub's template + `KeepAlive` |
+| runners | App key (0600, `ci` only), the pinned runner tarball, `runners.env`, the `github-app-token` and `mac-worker` scripts, optional signing files; two LaunchDaemons (`ci.mac-mini-ci.worker1/2`) |
 
-## Runner lanes
+## Runner workers
 
 Need a GitHub App (repository permission Administration: write, installed on the repo) and four
 more `.env` lines: `MAC_MINI_GITHUB_REPO`, `MAC_MINI_GITHUB_APP_ID`,
 `MAC_MINI_GITHUB_APP_INSTALLATION_ID`, `MAC_MINI_GITHUB_APP_KEY` (path to the .pem). Without them
-the runner tasks print a notice and do nothing.
+the runner task prints a notice and does nothing.
 
-- Both lanes run as `ci`. The App key is readable by `ci`, so a release job on the host could read
-  it; with repo-level JIT the App must hold Administration: write, which is broader than runners.
-  Accepted for now (release jobs are approved code); an org would narrow the permission to
-  "Self-hosted runners", and a separate release user would keep the key away from release jobs.
+Two workers, one Tart VM slot each (Apple's limit). Each keeps a warm build VM booted with nothing
+registered, polls GitHub for queued jobs labelled `mac-build` or `mac-release`, claims one (a lock
+directory per job id, so the workers never double-book), mints a one-job JIT runner, installs the
+pinned runner into the VM from the shared cache, and runs it. A release job gets a fresh VM with
+the signing directory mounted read-only (`/Volumes/My Shared Files/signing`); the `.p12` password
+is a GitHub environment secret, never on the host. A watchdog tears down a runner whose job never
+arrives. After the job the VM is deleted and the next warm one boots.
+
+- Everything runs as `ci`; the App key is readable by `ci`. With repo-level JIT the App must hold
+  Administration: write, which is broader than runners; an org would narrow it to "Self-hosted
+  runners". Jobs run in VMs, so a job cannot read the key.
 - Build VMs are isolated from the LAN by softnet but have full internet egress: GitHub publishes
   no IP ranges for the Actions service endpoints, so an allow-list needs a hostname-aware proxy
-  first (`build_extra_tart_run_args` is the hook).
-- The release runner is version-pinned. Bump `release_runner_version` and `_sha256` together and
-  rerun; GitHub stops queuing jobs to runners more than 30 days behind. No watchdog yet: if the
-  listener wedges (known on macOS), `sudo launchctl kickstart -k system/<label>`.
-- Logs: `/Users/ci/Library/Logs/mac-build/slot{1,2}.log` and
-  `/Users/ci/Library/Logs/actions.runner.<owner>-<repo>.mac-release/`.
+  first (`extra_tart_run_args` is the hook).
+- Build jobs start immediately (warm VM); release jobs pay ~45 s for the fresh VM.
+- To ship signing material: set `MAC_MINI_SIGNING_P12` and `MAC_MINI_NOTARY_KEY` to local paths in
+  `.env` and rerun; gate the release workflow with an environment that has required reviewers.
+- Runner version: bump `runner_version` and `runner_sha256` together; nothing else to restart.
+- Logs: `/Users/ci/Library/Logs/mac-mini-ci/worker{1,2}.log`.
 - Canary: run the "Mac canary" workflow from the Actions tab; it exercises both lanes.
 
 ## What it deliberately does not do

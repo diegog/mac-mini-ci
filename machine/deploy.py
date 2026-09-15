@@ -66,7 +66,5 @@ local.include("tasks/clt.py")
 local.include("tasks/homebrew.py")
 local.include("tasks/tart.py")
 
-# Runner lanes; no-ops until MAC_MINI_GITHUB_* are set.
-local.include("tasks/github_app.py")
-local.include("tasks/build_lane.py")
-local.include("tasks/release_lane.py")
+# Runner workers; no-ops until MAC_MINI_GITHUB_* are set.
+local.include("tasks/runners.py")

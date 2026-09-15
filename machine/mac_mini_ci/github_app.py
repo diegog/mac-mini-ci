@@ -31,11 +31,11 @@ def app_jwt(app_id: str, key_path: str) -> str:
     return f"{header}.{payload}.{signature}"
 
 
-def _post(path: str, bearer: str) -> dict:
+def _call(method: str, path: str, bearer: str) -> dict:
     request = urllib.request.Request(
         API + path,
-        method="POST",
-        data=b"{}",
+        method=method,
+        data=b"{}" if method == "POST" else None,
         headers={
             "Authorization": f"Bearer {bearer}",
             "Accept": "application/vnd.github+json",
@@ -43,7 +43,11 @@ def _post(path: str, bearer: str) -> dict:
         },
     )
     with urllib.request.urlopen(request) as response:
-        return json.load(response)
+        return json.load(response) if response.status != 204 else {}
+
+
+def _post(path: str, bearer: str) -> dict:
+    return _call("POST", path, bearer)
 
 
 def installation_token(app_id: str, installation_id: str, key_path: str) -> str:
@@ -53,3 +57,11 @@ def installation_token(app_id: str, installation_id: str, key_path: str) -> str:
 def registration_token(repo: str, installation_token: str) -> str:
     """Short-lived (1 h) token for `config.sh --token`."""
     return _post(f"/repos/{repo}/actions/runners/registration-token", installation_token)["token"]
+
+
+def list_runners(repo: str, installation_token: str) -> list[dict]:
+    return _call("GET", f"/repos/{repo}/actions/runners?per_page=100", installation_token)["runners"]
+
+
+def delete_runner(repo: str, installation_token: str, runner_id: int) -> None:
+    _call("DELETE", f"/repos/{repo}/actions/runners/{runner_id}", installation_token)
