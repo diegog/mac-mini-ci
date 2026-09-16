@@ -10,7 +10,10 @@
 **A Mac mini on a shelf that builds, signs, and ships your software.**
 
 [![CI](https://github.com/diegog/mac-mini-ci/actions/workflows/ci.yml/badge.svg)](https://github.com/diegog/mac-mini-ci/actions/workflows/ci.yml)
-[![macOS Tahoe 26.7](https://img.shields.io/badge/macOS_Tahoe-26.7-000000?logo=apple&logoColor=white)](https://www.apple.com/macos/)
+[![Mac canary](https://github.com/diegog/mac-mini-ci/actions/workflows/mac-canary.yml/badge.svg)](https://github.com/diegog/mac-mini-ci/actions/workflows/mac-canary.yml)
+[![Release](https://github.com/diegog/mac-mini-ci/actions/workflows/release.yml/badge.svg)](https://github.com/diegog/mac-mini-ci/actions/workflows/release.yml)
+[![macOS 27](https://img.shields.io/badge/macOS-27-000000?logo=apple&logoColor=white)](https://www.apple.com/macos/)
+[![Xcode 26.5](https://img.shields.io/badge/Xcode-26.5-1575F9?logo=xcode&logoColor=white)](https://developer.apple.com/xcode/)
 [![Mac mini M4](https://img.shields.io/badge/Mac_mini-M4_·_32_GB-555555?logo=apple&logoColor=white)](https://www.apple.com/mac-mini/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
