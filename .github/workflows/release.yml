@@ -16,7 +16,6 @@ jobs:
     environment: release
     env:
       SIGNING_DIR: /Volumes/My Shared Files/signing
-      KEYCHAIN: ${{ runner.temp }}/signing.keychain-db
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
 
@@ -31,6 +30,8 @@ jobs:
           P12_PASSWORD: ${{ secrets.SIGNING_P12_PASSWORD }}
         run: |
           set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          echo "KEYCHAIN=$KEYCHAIN" >> "$GITHUB_ENV"   # later steps use it too
           KEYCHAIN_PASSWORD=$(openssl rand -base64 24)
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
           security set-keychain-settings -lut 3600 "$KEYCHAIN"
@@ -48,6 +49,14 @@ jobs:
           codesign --verify --strict --verbose=2 build/hello
           codesign --display --verbose=2 build/hello 2>&1 | grep -E '^(Authority|TeamIdentifier|Timestamp)'
 
+      # The signed build is kept before notarization: Apple's queue occasionally takes longer
+      # than any sane timeout, and the ticket it eventually issues is bound to this exact file.
+      - name: Upload the signed build
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: hello-signed
+          path: build/hello
+
       - name: Notarize
         run: |
           ditto -c -k --keepParent build/hello build/hello.zip
@@ -55,7 +64,7 @@ jobs:
             --key "$SIGNING_DIR/AuthKey.p8" \
             --key-id "${{ vars.NOTARY_KEY_ID }}" \
             --issuer "${{ vars.NOTARY_ISSUER_ID }}" \
-            --wait --timeout 30m
+            --wait --timeout 60m
           # A bare executable cannot be stapled (that needs an .app, .pkg or .dmg); Gatekeeper
           # fetches the ticket online. Real bundles: `xcrun stapler staple <bundle>` here.
 
