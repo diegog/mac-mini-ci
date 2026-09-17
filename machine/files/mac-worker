@@ -14,7 +14,9 @@ set -uo pipefail
 WORKER=${1:?usage: mac-worker <n>}
 . /Users/ci/mac-mini-ci/runners.env
 BIN=/Users/ci/mac-mini-ci/bin
-CLAIMS=/Users/ci/mac-mini-ci/run/claims
+RUN=/Users/ci/mac-mini-ci/run
+CLAIMS=$RUN/claims
+LOG=/Users/ci/Library/Logs/mac-mini-ci/worker$WORKER.log
 export PATH=/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
 export TART_NO_AUTO_PRUNE=   # never evict the base image from the cache mid-cycle
 VM=; TART_PID=; CLAIM=; TOKEN=; TOKEN_AT=0
@@ -32,6 +34,10 @@ teardown_vm() {
 release_claim() { [ -n "$CLAIM" ] && rmdir "$CLAIMS/$CLAIM" 2>/dev/null; CLAIM=; }
 backoff() { log "$1; retrying in ${BACKOFF_SECONDS}s"; release_claim; teardown_vm; sleep "$BACKOFF_SECONDS"; }
 trap 'log "stopping"; release_claim; teardown_vm; exit 0' INT TERM
+# newsyslog rotates the log (by rename) and sends HUP: reopen it. The pid file is for newsyslog.
+exec >>"$LOG" 2>&1
+trap 'exec >>"$LOG" 2>&1' HUP
+echo $$ >"$RUN/worker$WORKER.pid"
 
 # Installation tokens last an hour; refresh well before that.
 token() {
@@ -146,11 +152,15 @@ fi
   while kill -0 "$exec_pid" 2>/dev/null; do
     sleep "$WATCHDOG_SECONDS"
     token || continue
-    busy=$(gh "actions/runners/$runner_id" 2>/dev/null | jq -r .busy 2>/dev/null)
-    case "$busy" in
+    reply=$(gh "actions/runners/$runner_id" 2>/dev/null); rc=$?
+    case "$rc" in
+      0) ;;
+      22) log "runner $runner_id gone from GitHub"; break ;;   # curl -f: 404, it deregistered
+      *) log "runner $runner_id: GitHub query failed (curl $rc); retrying"; continue ;;
+    esac
+    case "$(jq -r .busy <<<"$reply" 2>/dev/null)" in
       true) idle=0 ;;
       false) idle=$((idle + WATCHDOG_SECONDS)) ;;
-      *) log "runner $runner_id gone from GitHub"; break ;;
     esac
     if [ "$idle" -ge "$IDLE_TIMEOUT_SECONDS" ]; then log "no job arrived for $name"; break; fi
   done

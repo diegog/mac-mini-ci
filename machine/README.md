@@ -82,7 +82,7 @@ arrives. After the job the VM is deleted and the next warm one boots.
 - To ship signing material: set `MAC_MINI_SIGNING_P12` and `MAC_MINI_NOTARY_KEY` to local paths in
   `.env` and rerun; gate the release workflow with an environment that has required reviewers.
 - Runner version: bump `runner_version` and `runner_sha256` together; nothing else to restart.
-- Logs: `/Users/ci/Library/Logs/mac-mini-ci/worker{1,2}.log`.
+- Logs: `/Users/ci/Library/Logs/mac-mini-ci/worker{1,2}.log`, rotated by newsyslog at 5 MB, 7 kept.
 - Canary: run the "Mac canary" workflow from the Actions tab; it exercises both lanes.
 
 ## What it deliberately does not do

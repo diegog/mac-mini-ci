@@ -129,6 +129,19 @@ else:
 
     python.call(name="GitHub: sweep stale runner registrations", function=_sweep_registrations)
 
+    # Worker logs: rotated by newsyslog (already scheduled by launchd), which HUPs the worker to
+    # reopen its file. Without a pid file newsyslog would HUP syslogd instead.
+    files.template(
+        name="newsyslog: rotate worker logs",
+        src="templates/newsyslog.conf.j2",
+        dest="/etc/newsyslog.d/mac-mini-ci.conf",
+        user="root",
+        group="wheel",
+        mode="644",
+        _sudo=True,
+        workers=range(1, int(host.data.workers) + 1),
+    )
+
     # --- workers ------------------------------------------------------------------------------
     for worker in range(1, int(host.data.workers) + 1):
         label = f"ci.mac-mini-ci.worker{worker}"
@@ -145,11 +158,16 @@ else:
             worker=worker,
         )
         # A changed plist or script must restart the daemon (its current VM/job dies with it);
-        # otherwise an unloaded daemon is just loaded.
+        # otherwise an unloaded daemon is just loaded. bootout is asynchronous (the worker's exit
+        # trap deletes its VM first), and bootstrap fails with EIO until it has finished.
         script_changed = lambda: any(op.is_complete() and op.did_change() for op in (scripts[1], env))  # noqa: E731
         server.shell(
             name=f"worker {worker}: restart daemon",
-            commands=[f"launchctl bootout system/{label} 2>/dev/null || true", f"launchctl bootstrap system {plist}"],
+            commands=[
+                f"launchctl bootout system/{label} 2>/dev/null || true",
+                f"for i in $(seq 1 60); do launchctl print system/{label} >/dev/null 2>&1 || break; sleep 1; done",
+                f"launchctl bootstrap system {plist}",
+            ],
             _sudo=True,
             _if=lambda r=rendered: (r.is_complete() and r.did_change()) or script_changed(),
         )
