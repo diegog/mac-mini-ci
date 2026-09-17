@@ -1,0 +1,16 @@
+# Keeps the SHA-pinned actions current (the repository requires pinning, so bumps arrive as PRs
+# with the new hash and version comment) and the two Python tool sets.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: pip
+    directory: /github
+    schedule:
+      interval: weekly
+  - package-ecosystem: pip
+    directory: /machine
+    schedule:
+      interval: weekly

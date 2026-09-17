@@ -1,0 +1,6 @@
+# Managed by pyinfra (machine/templates/newsyslog.conf.j2). Worker logs: rotate at 5 MB, keep 7,
+# gzip; HUP the worker (pid file) so it reopens the new file.
+# logfilename                                              [owner:group]  mode count size when flags [/pid_file]
+{% for n in workers -%}
+/Users/{{ host.data.ci_user }}/Library/Logs/mac-mini-ci/worker{{ n }}.log  {{ host.data.ci_user }}:staff  600  7  5000  *  Z  /Users/{{ host.data.ci_user }}/mac-mini-ci/run/worker{{ n }}.pid
+{% endfor %}

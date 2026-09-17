@@ -42,6 +42,16 @@ repo = github.Repository(
     opts=pulumi.ResourceOptions(provider=provider, protect=True),
 )
 
+# Dependabot: alerts for known-vulnerable dependencies, with automatic fix PRs. Version bumps for
+# the SHA-pinned actions come from .github/dependabot.yml (nobody updates commit hashes by hand).
+alerts = github.RepositoryVulnerabilityAlerts("vulnerability-alerts", repository=repo.name, opts=opts)
+github.RepositoryDependabotSecurityUpdates(
+    "dependabot-security-updates",
+    repository=repo.name,
+    enabled=True,
+    opts=pulumi.ResourceOptions(provider=provider, depends_on=[alerts]),
+)
+
 # Only GitHub-authored and verified-creator actions may run, and they must be pinned by commit.
 github.ActionsRepositoryPermissions(
     "actions-permissions",

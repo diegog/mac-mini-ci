@@ -1,8 +1,12 @@
 name: Mac canary
 
-# Proves both self-hosted lanes take work. Manual only; never triggered by pull requests.
+# Proves both self-hosted lanes take work. Never triggered by pull requests. Runs daily so a
+# broken host is noticed before a release needs it; the scheduled run skips the release lane,
+# which would otherwise sit waiting for a reviewer.
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * *'
 
 permissions:
   contents: read
@@ -25,6 +29,7 @@ jobs:
     name: mac-release (fresh VM with the signing share)
     runs-on: [self-hosted, macOS, ARM64, mac-release]
     environment: release   # waits for a reviewer, like a real release
+    if: github.event_name != 'schedule'
     steps:
       - name: Environment
         run: |
