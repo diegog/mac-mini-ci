@@ -52,7 +52,7 @@ jobs:
       # The signed build is kept before notarization: Apple's queue occasionally takes longer
       # than any sane timeout, and the ticket it eventually issues is bound to this exact file.
       - name: Upload the signed build
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: hello-signed
           path: build/hello
@@ -69,7 +69,7 @@ jobs:
           # fetches the ticket online. Real bundles: `xcrun stapler staple <bundle>` here.
 
       - name: Upload the notarized build
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: hello-notarized
           path: build/hello.zip
